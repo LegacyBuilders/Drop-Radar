@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/mcp.json",
+  "mcpServers": {
+    "cloudflare": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "https://bindings.mcp.cloudflare.com/sse"]
+    },
+    "cloudflare-docs": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "https://docs.mcp.cloudflare.com/sse"]
+    }
+  }
+}

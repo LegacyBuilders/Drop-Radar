@@ -4,8 +4,9 @@ import type { InstantRules } from "@instantdb/react";
 // sensitive fields are gated by grant rows; money/scoring/moderation writes
 // only happen server-side via the Admin SDK.
 //
-// Phase 0: simple ownership/admin rules. Phase 1 layers in per-field gates for
-// drops.file_url (proximityGrants / visionProofs / transactions / quizAttempts).
+// Note on CEL: `auth.ref(...)` and `data.ref(...)` traverse links and return
+// LISTS, never scalars — even for `has: "one"` relations. Always compare with
+// the `in` operator: `'admin' in auth.ref('$user.profile.role')`.
 const rules = {
   $default: {
     allow: {
@@ -21,8 +22,8 @@ const rules = {
       view: "true",
       create: "auth.id != null",
       update:
-        "auth.id == data.ref('$user.id') || auth.ref('$user.profile.role') == 'admin'",
-      delete: "auth.ref('$user.profile.role') == 'admin'",
+        "auth.id in data.ref('$user.id') || 'admin' in auth.ref('$user.profile.role')",
+      delete: "'admin' in auth.ref('$user.profile.role')",
     },
   },
 
@@ -32,9 +33,9 @@ const rules = {
       create:
         "auth.id != null && auth.email == newData.creator_email",
       update:
-        "auth.email == data.creator_email || auth.ref('$user.profile.role') == 'admin'",
+        "auth.email == data.creator_email || 'admin' in auth.ref('$user.profile.role')",
       delete:
-        "auth.email == data.creator_email || auth.ref('$user.profile.role') == 'admin'",
+        "auth.email == data.creator_email || 'admin' in auth.ref('$user.profile.role')",
     },
   },
 
@@ -44,7 +45,7 @@ const rules = {
       create: "auth.id != null && auth.email == newData.user_email",
       update: "auth.email == data.user_email",
       delete:
-        "auth.email == data.user_email || auth.ref('$user.profile.role') == 'admin'",
+        "auth.email == data.user_email || 'admin' in auth.ref('$user.profile.role')",
     },
   },
 
@@ -69,8 +70,8 @@ const rules = {
     allow: {
       view: "true",
       create: "auth.id != null",
-      update: "auth.ref('$user.profile.role') == 'admin'",
-      delete: "auth.ref('$user.profile.role') == 'admin'",
+      update: "'admin' in auth.ref('$user.profile.role')",
+      delete: "'admin' in auth.ref('$user.profile.role')",
     },
   },
 
@@ -78,17 +79,17 @@ const rules = {
     allow: {
       view: "true",
       create: "auth.id != null",
-      update: "auth.id == data.ref('profile.$user.id')",
-      delete: "auth.id == data.ref('profile.$user.id')",
+      update: "auth.id in data.ref('profile.$user.id')",
+      delete: "auth.id in data.ref('profile.$user.id')",
     },
   },
 
   links: {
     allow: {
       view: "true",
-      create: "auth.id == newData.ref('profile.$user.id')",
-      update: "auth.id == data.ref('profile.$user.id')",
-      delete: "auth.id == data.ref('profile.$user.id')",
+      create: "auth.id in newData.ref('profile.$user.id')",
+      update: "auth.id in data.ref('profile.$user.id')",
+      delete: "auth.id in data.ref('profile.$user.id')",
     },
   },
 
@@ -96,7 +97,7 @@ const rules = {
   transactions: {
     allow: {
       view:
-        "auth.email == data.buyer_email || auth.email == data.creator_email || auth.ref('$user.profile.role') == 'admin'",
+        "auth.email == data.buyer_email || auth.email == data.creator_email || 'admin' in auth.ref('$user.profile.role')",
       create: "false",
       update: "false",
       delete: "false",
@@ -105,7 +106,7 @@ const rules = {
 
   subscriptions: {
     allow: {
-      view: "auth.id == data.ref('profile.$user.id')",
+      view: "auth.id in data.ref('profile.$user.id')",
       create: "false",
       update: "false",
       delete: "false",
@@ -114,7 +115,7 @@ const rules = {
 
   payouts: {
     allow: {
-      view: "auth.id == data.ref('profile.$user.id')",
+      view: "auth.id in data.ref('profile.$user.id')",
       create: "false",
       update: "false",
       delete: "false",
@@ -134,10 +135,10 @@ const rules = {
   quizzes: {
     // Answer keys never reach a non-creator client.
     allow: {
-      view: "auth.email == data.ref('drop.creator_email')",
-      create: "auth.email == newData.ref('drop.creator_email')",
-      update: "auth.email == data.ref('drop.creator_email')",
-      delete: "auth.email == data.ref('drop.creator_email')",
+      view: "auth.email in data.ref('drop.creator_email')",
+      create: "auth.email in newData.ref('drop.creator_email')",
+      update: "auth.email in data.ref('drop.creator_email')",
+      delete: "auth.email in data.ref('drop.creator_email')",
     },
   },
 
@@ -163,8 +164,8 @@ const rules = {
     allow: {
       view: "true",
       create: "auth.id != null",
-      update: "auth.ref('$user.profile.role') == 'admin'",
-      delete: "auth.ref('$user.profile.role') == 'admin'",
+      update: "'admin' in auth.ref('$user.profile.role')",
+      delete: "'admin' in auth.ref('$user.profile.role')",
     },
   },
 
@@ -179,25 +180,25 @@ const rules = {
 
   notifications: {
     allow: {
-      view: "auth.id == data.ref('profile.$user.id')",
+      view: "auth.id in data.ref('profile.$user.id')",
       create: "false",
-      update: "auth.id == data.ref('profile.$user.id')",
-      delete: "auth.id == data.ref('profile.$user.id')",
+      update: "auth.id in data.ref('profile.$user.id')",
+      delete: "auth.id in data.ref('profile.$user.id')",
     },
   },
 
   abuseReports: {
     allow: {
-      view: "auth.ref('$user.profile.role') == 'admin'",
+      view: "'admin' in auth.ref('$user.profile.role')",
       create: "auth.id != null && auth.email == newData.reporter_email",
-      update: "auth.ref('$user.profile.role') == 'admin'",
-      delete: "auth.ref('$user.profile.role') == 'admin'",
+      update: "'admin' in auth.ref('$user.profile.role')",
+      delete: "'admin' in auth.ref('$user.profile.role')",
     },
   },
 
   aiSessions: {
     allow: {
-      view: "auth.id == data.ref('profile.$user.id')",
+      view: "auth.id in data.ref('profile.$user.id')",
       create: "false",
       update: "false",
       delete: "false",
